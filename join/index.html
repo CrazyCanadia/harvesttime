@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Join a HarvestTime table</title>
+<style>
+  :root { --bg:#f3efe2; --card:#fffdf6; --green:#3f6b2a; --green-dark:#2d4f1d; --soil:#6b4f32; --text:#2b2a22; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { width:min(92vw, 440px); background:var(--card); border:2px solid #d9cfb4; border-radius:18px;
+         padding:28px 24px; text-align:center; box-shadow:0 6px 24px rgba(60,50,20,.12); }
+  h1 { margin:0 0 6px; font-size:1.6rem; color:var(--green-dark); }
+  p { margin:8px 0; line-height:1.45; }
+  .btn { display:block; width:100%; margin:14px 0 0; padding:16px; border:0; border-radius:12px; font-size:1.15rem;
+         font-weight:700; text-decoration:none; cursor:pointer; }
+  .primary { background:var(--green); color:#fff; font-size:1.3rem; padding:20px; }
+  .primary:active { background:var(--green-dark); }
+  .secondary { background:#e8e0c8; color:var(--soil); }
+  .get { display:inline-block; margin-top:18px; color:var(--green); font-weight:600; }
+  .msg { min-height:1.4em; font-size:.95rem; color:var(--soil); }
+  .err { color:#8a2b1a; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🌱 HarvestTime</h1>
+  <div id="ok" hidden>
+    <p>You've been invited to a HarvestTime table.</p>
+    <a id="open" class="btn primary" href="#">Open HarvestTime</a>
+    <button id="copy" class="btn secondary" type="button">Copy invite code</button>
+    <p id="msg" class="msg" aria-live="polite"></p>
+    <p style="font-size:.9rem">If the app doesn't open, tap <b>Copy invite code</b>, open HarvestTime and choose <b>Join copied invite?</b></p>
+  </div>
+  <div id="bad" hidden>
+    <p class="err">This invite link looks incomplete. Ask your friend to share it again.</p>
+  </div>
+  <!-- TODO: set the real store / download link -->
+  <a class="get" href="#TODO-get-harvesttime">Don't have it? Get HarvestTime</a>
+</main>
+<script>
+// Everything stays on this device: no analytics, no external scripts, no network requests.
+// The invite code lives in the URL fragment (#c=...), which browsers never send to the web server.
+(function () {
+  var ANDROID_PACKAGE = "com.DefaultCompany.urp_2d"; // PlayerSettings applicationIdentifier (Android)
+  function readCode() {
+    var src = (location.hash || "").replace(/^#/, "");
+    if (!src) src = (location.search || "").replace(/^\?/, ""); // also accept /join/?c=
+    var parts = src.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].slice(0, 2).toLowerCase() !== "c=") continue;
+      var v;
+      try { v = decodeURIComponent(parts[i].slice(2)); } catch (e) { continue; }
+      v = v.trim();
+      if (/^HTR1\.[A-Za-z0-9_-]{20,200}$/.test(v)) return v;
+    }
+    return null;
+  }
+  var code = readCode();
+  if (!code) { document.getElementById("bad").hidden = false; return; }
+  document.getElementById("ok").hidden = false;
+
+  var enc = encodeURIComponent(code);
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  var link = isAndroid
+    ? "intent://join?c=" + enc + "#Intent;scheme=harvesttime;package=" + ANDROID_PACKAGE + ";end"
+    : "harvesttime://join?c=" + enc;
+  var open = document.getElementById("open");
+  open.href = link;
+
+  var msg = document.getElementById("msg");
+  document.getElementById("copy").addEventListener("click", function () {
+    function done() { msg.textContent = "Invite code copied. Open HarvestTime to join."; }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = code; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      msg.textContent = ok ? "Invite code copied. Open HarvestTime to join." : "Couldn't copy automatically.";
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fallback);
+    else fallback();
+  });
+
+  // Try to open the app right away; the button stays for browsers that block automatic app launches.
+  try { window.location = link; } catch (e) {}
+})();
+</script>
+</body>
+</html>
