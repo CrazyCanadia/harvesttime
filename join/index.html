@@ -32,25 +32,27 @@
   <h1>🌱 HarvestTime</h1>
   <div id="ok" hidden>
     <p>You've been invited to a HarvestTime table.</p>
-    <a id="open" class="btn primary" href="#">Open HarvestTime</a>
-    <button id="copy" class="btn secondary" type="button">Copy invite code</button>
+    <button id="open" class="btn primary" type="button">Open HarvestTime</button>
+    <a id="get" class="btn secondary" href="#">Get HarvestTime</a>
     <p id="msg" class="msg" aria-live="polite"></p>
-    <p style="font-size:.9rem">If the app doesn't open, tap <b>Copy invite code</b>, open HarvestTime and choose <b>Join copied invite?</b></p>
+    <p style="font-size:.9rem">New to HarvestTime? Tap <b>Get HarvestTime</b> &mdash; the invite is copied for you. After installing, open HarvestTime and tap <b>Join copied invite?</b></p>
   </div>
   <div id="bad" hidden>
     <p class="err">This invite link looks incomplete. Ask your friend to share it again.</p>
   </div>
-  <!-- TODO: set the real store / download link -->
-  <a class="get" href="#TODO-get-harvesttime">Don't have it? Get HarvestTime</a>
 </main>
 <script>
+// ---- Config: set the real download pages here ----
+var ANDROID_DOWNLOAD_URL = "#TODO";  // e.g. Play Store / APK download page
+var WINDOWS_DOWNLOAD_URL = "#TODO";  // e.g. Windows installer / zip download page
+var ANDROID_PACKAGE = "com.DefaultCompany.urp_2d"; // PlayerSettings applicationIdentifier (Android)
+// ---------------------------------------------------
 // Everything stays on this device: no analytics, no external scripts, no network requests.
 // The invite code lives in the URL fragment (#c=...), which browsers never send to the web server.
 (function () {
-  var ANDROID_PACKAGE = "com.DefaultCompany.urp_2d"; // PlayerSettings applicationIdentifier (Android)
   function readCode() {
     var src = (location.hash || "").replace(/^#/, "");
-    if (!src) src = (location.search || "").replace(/^\?/, ""); // also accept /join/?c=
+    if (!src) src = (location.search || "").replace(/^\?/, "");
     var parts = src.split("&");
     for (var i = 0; i < parts.length; i++) {
       if (parts[i].slice(0, 2).toLowerCase() !== "c=") continue;
@@ -66,30 +68,53 @@
   document.getElementById("ok").hidden = false;
 
   var enc = encodeURIComponent(code);
-  var isAndroid = /Android/i.test(navigator.userAgent);
-  var link = isAndroid
-    ? "intent://join?c=" + enc + "#Intent;scheme=harvesttime;package=" + ANDROID_PACKAGE + ";end"
-    : "harvesttime://join?c=" + enc;
-  var open = document.getElementById("open");
-  open.href = link;
+  var inviteText = "Join my HarvestTime table: https://crazycanadia.github.io/harvesttime/join/#c=" + enc;
+  var ua = navigator.userAgent;
+  var isAndroid = /Android/i.test(ua);
+  var isWindows = /Windows/i.test(ua) && !/Windows Phone/i.test(ua);
+  var downloadUrl = isAndroid ? ANDROID_DOWNLOAD_URL : WINDOWS_DOWNLOAD_URL;
+  var appLink = "harvesttime://join?c=" + enc;
+  var openLink = isAndroid
+    ? "intent://join?c=" + enc + "#Intent;scheme=harvesttime;package=" + ANDROID_PACKAGE +
+      (ANDROID_DOWNLOAD_URL.charAt(0) === "#" ? "" : ";S.browser_fallback_url=" + encodeURIComponent(new URL(ANDROID_DOWNLOAD_URL, location.href).href)) + ";end"
+    : appLink;
 
   var msg = document.getElementById("msg");
-  document.getElementById("copy").addEventListener("click", function () {
-    function done() { msg.textContent = "Invite code copied. Open HarvestTime to join."; }
+  var get = document.getElementById("get");
+  get.href = downloadUrl;
+  get.textContent = isAndroid ? "Get HarvestTime for Android" : isWindows ? "Download HarvestTime for Windows" : "Get HarvestTime";
+
+  // Copy the full invite so the app finds it on first launch after install ("Join copied invite?").
+  function copyInvite() {
+    function note(ok) { msg.textContent = ok ? "Invite copied. Open HarvestTime after installing and tap Join." : "Couldn't copy automatically. Keep this page and tap Open HarvestTime after installing."; }
     function fallback() {
       var ta = document.createElement("textarea");
-      ta.value = code; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      ta.value = inviteText; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
       document.body.appendChild(ta); ta.select();
       var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
-      document.body.removeChild(ta);
-      msg.textContent = ok ? "Invite code copied. Open HarvestTime to join." : "Couldn't copy automatically.";
+      document.body.removeChild(ta); note(ok);
     }
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fallback);
-    else fallback();
-  });
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inviteText).then(function () { note(true); }, fallback);
+      else fallback();
+    } catch (e) { fallback(); }
+  }
 
-  // Try to open the app right away; the button stays for browsers that block automatic app launches.
-  try { window.location = link; } catch (e) {}
+  document.getElementById("open").addEventListener("click", function () {
+    copyInvite(); // user gesture: clipboard allowed; covers the not-installed case
+    window.location.href = openLink;
+    if (!isAndroid) {
+      // Desktop: if the app did not take focus, show the download option prominently.
+      var t = setTimeout(function () {
+        if (!document.hidden) { get.className = "btn primary"; msg.textContent += " Not installed? Download it below."; }
+      }, 2000);
+      window.addEventListener("blur", function () { clearTimeout(t); }, { once: true });
+    }
+  });
+  get.addEventListener("click", function () { copyInvite(); });
+
+  // Try to open the app right away (works when installed; browsers may ask "Open HarvestTime?").
+  try { window.location.href = openLink; } catch (e) {}
 })();
 </script>
 </body>
